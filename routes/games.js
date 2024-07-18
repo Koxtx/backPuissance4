@@ -1,3 +1,4 @@
+// routes/games.js
 const express = require("express");
 const {
   postGame,

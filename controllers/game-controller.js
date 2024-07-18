@@ -1,5 +1,5 @@
 const Game = require("../models/game.schema");
-const { broadcastGameUpdate, io } = require("../socket/socket");
+const { broadcastGameUpdate } = require("../socket/socket");
 
 const getGame = async (req, res) => {
   try {
@@ -23,7 +23,7 @@ const postGame = async (req, res) => {
       return res.status(404).json({ error: "One or both players not found" });
     }
 
-    const game = new Game({ players: [player1Id, player2Id] });
+    const game = new Game({ player1Id, player2Id });
     await game.save();
     res.status(201).json(game);
   } catch (error) {
@@ -40,16 +40,13 @@ const updateGame = async (req, res) => {
       return res.status(400).json({ error: "Invalid game state" });
     }
 
-    // Trouver la première ligne disponible dans la colonne
     const row = game.board.findIndex((row) => row[column] === null);
     if (row === -1) {
       return res.status(400).json({ error: "Column is full" });
     }
 
-    // Placer le jeton du joueur actuel dans la colonne
     game.board[row][column] = game.currentPlayer;
 
-    // Vérifier les conditions de victoire directement ici
     const checkWinner = (board) => {
       const directions = [
         [0, 1],
@@ -95,18 +92,15 @@ const updateGame = async (req, res) => {
       game.status = "finished";
       game.winner = winner;
     } else if (game.board.flat().every((cell) => cell !== null)) {
-      // Si le plateau est plein et qu'il n'y a pas de vainqueur, c'est un match nul
       game.status = "finished";
       game.winner = "draw";
     } else {
-      // Changer le joueur actuel
       game.currentPlayer = game.currentPlayer === "R" ? "Y" : "R";
     }
 
     await game.save();
     res.json(game);
 
-    // Diffuser la mise à jour via WebSocket
     broadcastGameUpdate(game);
   } catch (error) {
     res.status(500).json({ error: error.message });
