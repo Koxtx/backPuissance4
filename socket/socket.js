@@ -22,19 +22,22 @@ let currentPlayer = "R";
 io.on("connection", (socket) => {
   console.log("A user connected", socket.id);
 
-  socket.on("joinGame", () => {
+  socket.on("joinGame", ({ playerId }) => {
     if (Object.keys(players).length < 2) {
       players[socket.id] = currentPlayer;
       currentPlayer = currentPlayer === "R" ? "Y" : "R";
       socket.emit("playerAssignment", players[socket.id]);
+    } else {
+      socket.emit("error", { message: "Game is full" });
     }
 
     io.emit("updateBoard", { board, currentPlayer });
   });
 
-  socket.on("makeMove", ({ index, player }) => {
-    if (board[index] === null && player === currentPlayer) {
-      board[index] = player;
+  socket.on("makeMove", ({ row, col, playerId }) => {
+    console.log(`Move received: row ${row}, col ${col}, player ${playerId}`);
+    if (isValidMove(row, col, socket)) {
+      board[row][col] = players[socket.id];
       currentPlayer = currentPlayer === "R" ? "Y" : "R";
       io.emit("updateBoard", { board, currentPlayer });
 
@@ -42,13 +45,18 @@ io.on("connection", (socket) => {
       if (winner) {
         io.emit("gameOver", { winner });
         resetGame();
-      } else if (board.every(Boolean)) {
-        io.emit("gameOver", {
-          winner: "Draw",
-        });
+      } else if (board.flat().every(Boolean)) {
+        io.emit("gameOver", { winner: "Draw" });
         resetGame();
       }
+    } else {
+      socket.emit("error", { message: "Invalid move" });
     }
+  });
+
+  socket.on("resetGame", () => {
+    resetGame();
+    io.emit("updateBoard", { board, currentPlayer });
   });
 
   socket.on("disconnect", () => {
@@ -64,15 +72,29 @@ io.on("connection", (socket) => {
   });
 });
 
+const isValidMove = (row, col, socket) => {
+  if (
+    row < 0 ||
+    row >= board.length ||
+    col < 0 ||
+    col >= board[0].length ||
+    board[row][col] !== null ||
+    players[socket.id] !== currentPlayer
+  ) {
+    return false;
+  }
+  return true;
+};
+
 const calculateWinner = (board) => {
   const rows = board.length;
   const cols = board[0].length;
 
   const directions = [
-    { x: 0, y: 1 }, // Horizontal droite
-    { x: 1, y: 0 }, // Vertical bas
-    { x: 1, y: 1 }, // Diagonal bas droite
-    { x: 1, y: -1 }, // Diagonal bas gauche
+    { x: 0, y: 1 },
+    { x: 1, y: 0 },
+    { x: 1, y: 1 },
+    { x: 1, y: -1 },
   ];
 
   const checkDirection = (row, col, dir) => {

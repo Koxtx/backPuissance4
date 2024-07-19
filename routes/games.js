@@ -1,15 +1,15 @@
 // routes/games.js
 const express = require("express");
 const {
-  postGame,
-  updateGame,
-  getGame,
+  joinGame,
+  makeMove,
+  getGameStatus,
 } = require("../controllers/game-controller");
 
 const router = express.Router();
 
-router.get("/:id", getGame);
-router.post("/", postGame);
-router.put("/:id", updateGame);
+router.post("/join", joinGame);
+router.post("/move", makeMove);
+router.get("/status/:gameId", getGameStatus);
 
 module.exports = router;
