@@ -52,21 +52,7 @@ const loginUser = async (req, res) => {
   }
 };
 
-const getUsers = async (req, res) => {
-  console.log(req.body);
-  try {
-    const loggedInUserId = req.body.user._id;
-    const allUsersExceptMe = await User.find({
-      _id: { $ne: loggedInUserId },
-    }).select("-password");
-    res.status(200).json(allUsersExceptMe);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-};
-
 module.exports = {
   signupUser,
   loginUser,
-  getUsers,
 };

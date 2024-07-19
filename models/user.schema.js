@@ -4,6 +4,16 @@ const userSchema = new mongoose.Schema(
   {
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    gameHistory: [
+      {
+        opponent: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        isUserWinner: { type: Boolean, required: true },
+      },
+    ],
   },
   {
     timestamps: true,

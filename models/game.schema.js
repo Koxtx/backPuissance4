@@ -31,8 +31,14 @@ const gameSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    history: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "History",
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 module.exports = mongoose.model("Game", gameSchema);

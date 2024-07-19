@@ -13,7 +13,7 @@ const io = new Server(serverHttp, {
 });
 
 let players = {};
-
+let wins = {};
 let board = Array(6)
   .fill(null)
   .map(() => Array(7).fill(null));
@@ -22,11 +22,17 @@ let currentPlayer = "R";
 io.on("connection", (socket) => {
   console.log("A user connected", socket.id);
 
-  socket.on("joinGame", ({ playerId }) => {
+  socket.on("joinGame", ({ playerId, username }) => {
     if (Object.keys(players).length < 2) {
-      players[socket.id] = currentPlayer;
+      players[socket.id] = {
+        color: currentPlayer,
+        username,
+        wins: wins[username] || 0,
+      };
+      wins[username] = wins[username] || 0;
       currentPlayer = currentPlayer === "R" ? "Y" : "R";
-      socket.emit("playerAssignment", players[socket.id]);
+      socket.emit("playerAssignment", players[socket.id].color);
+      io.emit("updatePlayers", Object.values(players));
     } else {
       socket.emit("error", { message: "Game is full" });
     }
@@ -37,13 +43,18 @@ io.on("connection", (socket) => {
   socket.on("makeMove", ({ row, col, playerId }) => {
     console.log(`Move received: row ${row}, col ${col}, player ${playerId}`);
     if (isValidMove(row, col, socket)) {
-      board[row][col] = players[socket.id];
+      board[row][col] = players[socket.id].color;
       currentPlayer = currentPlayer === "R" ? "Y" : "R";
       io.emit("updateBoard", { board, currentPlayer });
 
       const winner = calculateWinner(board);
       if (winner) {
-        io.emit("gameOver", { winner });
+        const winnerPlayer = Object.values(players).find(
+          (player) => player.color === winner
+        );
+        wins[winnerPlayer.username]++;
+        io.emit("gameOver", { winner: winnerPlayer.username });
+        io.emit("updatePlayers", Object.values(players));
         resetGame();
       } else if (board.flat().every(Boolean)) {
         io.emit("gameOver", { winner: "Draw" });
@@ -54,21 +65,24 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("resetGame", () => {
-    resetGame();
-    io.emit("updateBoard", { board, currentPlayer });
+  socket.on("resetGameForPlayer", ({ playerColor }) => {
+    socket.emit("gameResetForPlayer", {
+      board: Array(6)
+        .fill(null)
+        .map(() => Array(7).fill(null)),
+      currentPlayer: "R",
+      playerColor: playerColor,
+    });
   });
 
   socket.on("disconnect", () => {
     console.log(`Client disconnected: ${socket.id}`);
     delete players[socket.id];
     if (Object.keys(players).length === 0) {
-      board = Array(6)
-        .fill(null)
-        .map(() => Array(7).fill(null));
-      currentPlayer = "R";
+      resetGame();
     }
     io.emit("updateBoard", { board, currentPlayer });
+    io.emit("updatePlayers", Object.values(players));
   });
 });
 
@@ -79,7 +93,8 @@ const isValidMove = (row, col, socket) => {
     col < 0 ||
     col >= board[0].length ||
     board[row][col] !== null ||
-    players[socket.id] !== currentPlayer
+    !players[socket.id] || // check if players[socket.id] is defined
+    players[socket.id].color !== currentPlayer
   ) {
     return false;
   }
